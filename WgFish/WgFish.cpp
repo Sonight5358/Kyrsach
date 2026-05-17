@@ -3,7 +3,7 @@
 #include <string>
 #include <algorithm>
 
-#include <httplib.h>
+#include "httplib.h"
 
 std::vector<std::vector<int>> WgFish(const std::string& word1, const std::string& word2)
 {	
@@ -44,17 +44,40 @@ std::vector<std::vector<int>> WgFish(const std::string& word1, const std::string
 }
 
 int main()
-{	
-	std::string word1, word2;
-	std::getline(std::cin, word1);
-	std::getline(std::cin, word2);
+{
+	httplib::Server svr;
 
-	std::vector<std::vector<int>> result = WgFish(word1, word2);
+	svr.Get("/solve", [](const httplib::Request& req, httplib::Response& res)
+		{
+			if (req.has_param("word1") && req.has_param("word2"))
+			{
+				std::string w1 = req.get_param_value("word1");
+				std::string w2 = req.get_param_value("word2");
 
-	if (!result.empty() && !result[0].empty())
-	{
-		std::cout << "Distance:" << result.back().back();
-	}
+				std::vector<std::vector<int>> matrix = WgFish(w1, w2);
+
+				std::string response_body = "";
+				for (size_t i = 0; i < matrix.size(); ++i)
+				{
+					for (size_t j = 0; j < matrix[i].size(); ++j)
+					{
+						response_body += std::to_string(matrix[i][j]) + " ";
+					}
+					response_body += "\n";
+				}
+
+				res.set_header("Access-Control-Allow-Origin", "*");
+				res.set_content(response_body, "text/plain");
+			}
+			else
+			{
+				res.status = 400;
+				res.set_content("Error: Please provide word1 and word2 parameters", "text/plain");
+			}
+		});
+
+	std::cout << "Server successfully started at http://localhost:8080";
+	svr.listen("127.0.0.1", 8080);
 
 	return 0;
 }
