@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wagner-Fischer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #07060f;
+    --surface:  #0f0e1c;
+    --surface2: #16152a;
+    --border:   rgba(120,100,255,0.15);
+    --border2:  rgba(120,100,255,0.3);
+    --purple:   #7c6dfa;
+    --violet:   #a78bfa;
+    --blue:     #60a5fa;
+    --glow:     rgba(124,109,250,0.35);
+    --text:     #e8e4ff;
+    --muted:    rgba(232,228,255,0.45);
+    --accent:   #b197fc;
+    --result:   #22d3ee;
+    --result-glow: rgba(34,211,238,0.4);
+    --path:     rgba(124,109,250,0.22);
+  }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* --- Layout --- */
+  .page {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 24px 80px;
+    gap: 40px;
+  }
+
+  /* --- Header --- */
+  header {
+    text-align: center;
+    animation: fadeDown 0.8s ease both;
+  }
+  .header-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--violet);
+    border: 1px solid rgba(167,139,250,0.25);
+    border-radius: 20px;
+    padding: 4px 14px;
+    margin-bottom: 18px;
+    background: rgba(124,109,250,0.07);
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    background: linear-gradient(135deg, #d4c8ff 0%, #a78bfa 40%, #60a5fa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+  }
+  .subtitle {
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 300;
+    max-width: 420px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* --- Input card --- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 32px 36px;
+    width: 100%;
+    max-width: 560px;
+    box-shadow: 0 0 60px rgba(100,80,220,0.08), inset 0 1px 0 rgba(255,255,255,0.04);
+    animation: fadeUp 0.8s ease 0.15s both;
+  }
+
+  .inputs-row {
+    display: flex;
+    gap: 14px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .input-group {
+    flex: 1;
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  input[type="text"] {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 11px 15px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.25s, box-shadow 0.25s;
+    width: 100%;
+  }
+  input[type="text"]:focus {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(124,109,250,0.18);
+  }
+  input[type="text"]::placeholder { color: rgba(232,228,255,0.2); }
+
+  .arrow-label {
+    font-size: 20px;
+    color: var(--muted);
+    padding-bottom: 10px;
+    user-select: none;
+  }
+
+  button {
+    background: linear-gradient(135deg, var(--purple) 0%, #5b4fdb 100%);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-family: 'Outfit', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 11px 26px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.15s, box-shadow 0.25s, opacity 0.2s;
+    box-shadow: 0 4px 20px rgba(100,80,220,0.3);
+    align-self: flex-end;
+  }
+  button:hover  { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(100,80,220,0.45); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* --- Result badge --- */
+  .result-badge {
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    margin-top: 22px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(34,211,238,0.07);
+    border: 1px solid rgba(34,211,238,0.25);
+    border-radius: 12px;
+    padding: 12px 18px;
+  }
+  .result-badge.visible { opacity: 1; }
+  .badge-label { font-size: 13px; color: var(--muted); }
+  .badge-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--result);
+    text-shadow: 0 0 16px var(--result-glow);
+  }
+  .badge-desc { font-size: 13px; color: var(--muted); margin-left: auto; }
+
+  /* --- Matrix section --- */
+  .matrix-section {
+    width: 100%;
+    max-width: 900px;
+    animation: fadeUp 0.8s ease 0.3s both;
+  }
+  .section-title {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .matrix-wrapper {
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+  .matrix-wrapper::-webkit-scrollbar { height: 4px; }
+  .matrix-wrapper::-webkit-scrollbar-track { background: transparent; }
+  .matrix-wrapper::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  table.matrix {
+    border-collapse: separate;
+    border-spacing: 4px;
+    margin: 0 auto;
+  }
+
+  /* Header row/col labels */
+  .lbl {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--violet);
+    text-align: center;
+    padding: 6px 10px;
+    min-width: 48px;
+    opacity: 0;
+    animation: popIn 0.3s ease forwards;
+  }
+  .lbl-empty {
+    min-width: 48px;
+    opacity: 0;
+    animation: popIn 0.3s ease forwards;
+  }
+
+  td.cell {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    min-width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    transition: background 0.3s, border-color 0.3s, color 0.3s, transform 0.2s, box-shadow 0.3s;
+    opacity: 0;
+    animation: popIn 0.3s ease forwards;
+    position: relative;
+    cursor: default;
+  }
+  td.cell:hover {
+    border-color: var(--border2);
+    background: rgba(124,109,250,0.1);
+    transform: scale(1.08);
+    z-index: 2;
+  }
+
+  td.cell.path {
+    background: var(--path);
+    border-color: rgba(124,109,250,0.5);
+    color: var(--violet);
+  }
+  td.cell.result-cell {
+    background: rgba(34,211,238,0.12) !important;
+    border-color: rgba(34,211,238,0.55) !important;
+    color: var(--result) !important;
+    box-shadow: 0 0 18px rgba(34,211,238,0.25);
+  }
+
+  /* --- Legend --- */
+  .legend {
+    display: flex;
+    gap: 22px;
+    margin-top: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    opacity: 0;
+    transition: opacity 0.5s ease 0.5s;
+  }
+  .legend.visible { opacity: 1; }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid;
+    flex-shrink: 0;
+  }
+  .legend-dot.dot-normal { background: var(--surface2); border-color: rgba(120,100,255,0.25); }
+  .legend-dot.dot-path   { background: var(--path);    border-color: rgba(124,109,250,0.5); }
+  .legend-dot.dot-result { background: rgba(34,211,238,0.12); border-color: rgba(34,211,238,0.55); box-shadow: 0 0 8px rgba(34,211,238,0.25); }
+
+  /* --- Error message --- */
+  .error-msg {
+    display: none;
+    margin-top: 16px;
+    padding: 11px 16px;
+    border-radius: 10px;
+    background: rgba(239,68,68,0.09);
+    border: 1px solid rgba(239,68,68,0.3);
+    font-size: 13px;
+    color: #f87171;
+  }
+  .error-msg.visible { display: block; }
+
+  /* --- Loader spinner --- */
+  .spinner {
+    display: none;
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    flex-shrink: 0;
+  }
+  .spinner.visible { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* --- Animations --- */
+  @keyframes fadeDown {
+    from { opacity:0; transform: translateY(-18px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(18px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+  @keyframes popIn {
+    from { opacity:0; transform: scale(0.7); }
+    to   { opacity:1; transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb"></div>
+
+<div class="stars" id="stars"></div>
+
+<div class="page">
+
+  <header>
+    <div class="header-tag">Алгоритм редактирования строк</div>
+    <h1>Алгоритм Вагнера - Фишера</h1>
+    <p class="subtitle">Вычисляет минимальное редакционное расстояние между двумя строками методом динамического программирования</p>
+  </header>
+
+  <div class="card">
+    <div class="inputs-row">
+      <div class="input-group">
+        <label>Первое слово</label>
+        <input type="text" id="word1" placeholder="kitten" value="kitten" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="arrow-label">→</div>
+      <div class="input-group">
+        <label>Второе слово</label>
+        <input type="text" id="word2" placeholder="sitting" value="sitting" autocomplete="off" spellcheck="false">
+      </div>
+      <button id="calcBtn" onclick="calculate()">
+        <span id="btnText">Рассчитать</span>
+        <span class="spinner" id="spinner"></span>
+      </button>
+    </div>
+
+    <div class="error-msg" id="errorMsg">Не удалось связаться с C++ сервером. Убедись, что проект запущен в Visual Studio (localhost:8080).</div>
+
+    <div class="result-badge" id="resultBadge">
+      <span class="badge-label">Расстояние</span>
+      <span class="badge-value" id="distValue">—</span>
+      <span class="badge-desc" id="distDesc"></span>
+    </div>
+  </div>
+
+  <div class="matrix-section" id="matrixSection" style="display:none">
+    <div class="section-title">Матрица DP</div>
+    <div class="matrix-wrapper">
+      <table class="matrix" id="matrixTable"></table>
+    </div>
+    <div class="legend" id="legend">
+      <div class="legend-item"><div class="legend-dot dot-normal"></div>Значение</div>
+      <div class="legend-item"><div class="legend-dot dot-path"></div>Оптимальный путь</div>
+      <div class="legend-item"><div class="legend-dot dot-result"></div>Результат</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  /* --- Stars --- */
+  const starsEl = document.getElementById('stars');
+  for (let i = 0; i < 90; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 1.8 + 0.4;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%;
+      top:${Math.random()*100}%;
+      --dur:${(Math.random()*4+2).toFixed(1)}s;
+      --delay:-${(Math.random()*5).toFixed(1)}s;
+      --lo:${(Math.random()*0.1+0.05).toFixed(2)};
+      --hi:${(Math.random()*0.4+0.2).toFixed(2)};
+    `;
+    starsEl.appendChild(s);
+  }
+
+  /* --- Main logic --- */
+  async function calculate() {
+    const w1 = document.getElementById('word1').value.trim();
+    const w2 = document.getElementById('word2').value.trim();
+    const btn = document.getElementById('calcBtn');
+    const spinner = document.getElementById('spinner');
+    const btnText = document.getElementById('btnText');
+    const errorMsg = document.getElementById('errorMsg');
+    const resultBadge = document.getElementById('resultBadge');
+    const matrixSection = document.getElementById('matrixSection');
+    const legend = document.getElementById('legend');
+
+    if (!w1 || !w2) return;
+
+    errorMsg.classList.remove('visible');
+    resultBadge.classList.remove('visible');
+    matrixSection.style.display = 'none';
+    legend.classList.remove('visible');
+
+    btn.disabled = true;
+    btnText.textContent = '';
+    spinner.classList.add('visible');
+
+    try {
+      const res = await fetch(`http://localhost:8080/solve?word1=${encodeURIComponent(w1)}&word2=${encodeURIComponent(w2)}`);
+      if (!res.ok) throw new Error('bad response');
+      const text = await res.text();
+
+      const lines = text.trim().split('\n');
+      const matrix = lines.map(l => l.trim().split(/\s+/).map(Number).filter(v => !isNaN(v)));
+
+      const dist = matrix[matrix.length - 1][matrix[matrix.length - 1].length - 1];
+
+      document.getElementById('distValue').textContent = dist;
+      document.getElementById('distDesc').textContent =
+        dist === 0 ? 'строки идентичны' :
+        dist === 1 ? '1 операция' :
+        `${dist} операции`;
+      resultBadge.classList.add('visible');
+
+      buildTable(matrix, w1, w2);
+      matrixSection.style.display = 'block';
+      setTimeout(() => legend.classList.add('visible'), 600);
+    } catch (e) {
+      errorMsg.classList.add('visible');
+    } finally {
+      btn.disabled = false;
+      btnText.textContent = 'Рассчитать';
+      spinner.classList.remove('visible');
+    }
+  }
+
+  function buildTable(mx, w1, w2) {
+    const path = getPath(mx);
+    const pathSet = new Set(path.map(([r,c]) => `${r},${c}`));
+    const table = document.getElementById('matrixTable');
+    table.innerHTML = '';
+
+    const rows = mx.length;    // w1.length + 1
+    const cols = mx[0].length; // w2.length + 1
+
+    /* --- Header row --- */
+    const hRow = table.insertRow();
+    addCell(hRow, '', 'lbl-empty', 0);
+    addCell(hRow, '', 'lbl-empty', 1);
+    addCell(hRow, 'ε', 'lbl', 2);
+    for (let j = 0; j < w2.length; j++) {
+      addCell(hRow, w2[j], 'lbl', j + 3);
+    }
+
+    /* --- Data rows --- */
+    for (let i = 0; i < rows; i++) {
+      const row = table.insertRow();
+      /* row label */
+      const lblChar = i === 0 ? 'ε' : w1[i - 1];
+      addCell(row, lblChar, 'lbl', (i + 1) * cols);
+
+      /* index col label (ε for empty string, char otherwise) */
+      addCell(row, '', 'lbl-empty', (i + 1) * cols + 1);
+
+      for (let j = 0; j < cols; j++) {
+        const isResult = (i === rows - 1 && j === cols - 1);
+        const isPath   = pathSet.has(`${i},${j}`) && !isResult;
+        let cls = 'cell';
+        if (isResult) cls += ' result-cell';
+        else if (isPath) cls += ' path';
+        const delay = (i + j) * 18 + 60;
+        addCell(row, mx[i][j], cls, delay);
+      }
+    }
+  }
+
+  function addCell(row, text, cls, delayMs) {
+    const td = row.insertCell ? row.insertCell() : document.createElement('td');
+    if (!row.insertCell) row.appendChild(td);
+    td.className = cls;
+    td.textContent = text;
+    td.style.animationDelay = `${delayMs}ms`;
+    return td;
+  }
+
+  function getPath(mx) {
+    const path = [];
+    let i = mx.length - 1;
+    let j = mx[0].length - 1;
+    path.push([i, j]);
+    while (i > 0 || j > 0) {
+      if (i === 0)      { j--; }
+      else if (j === 0) { i--; }
+      else {
+        const diag = mx[i-1][j-1];
+        const up   = mx[i-1][j];
+        const left = mx[i][j-1];
+        const minVal = Math.min(diag, up, left);
+        if (minVal === diag)     { i--; j--; }
+        else if (minVal === up)  { i--; }
+        else                     { j--; }
+      }
+      path.push([i, j]);
+    }
+    return path;
+  }
+
+  /* Run on load */
+  window.addEventListener('load', () => calculate());
+
+  /* Enter key */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') calculate();
+  });
+</script>
+</body>
+</html>
